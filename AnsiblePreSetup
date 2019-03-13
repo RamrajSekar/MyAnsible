@@ -1,0 +1,128 @@
+[sekar_ramraj@ansible ~]$ sudo su
+[root@ansible sekar_ramraj]# vi /etc/ssh/sshd_config
+Update as below:
+----------------------
+# To disable tunneled clear text passwords, change to no here!
+PasswordAuthentication yes
+#PermitEmptyPasswords no
+#PasswordAuthentication no
+
+[root@ansible sekar_ramraj]# service sshd restart
+Redirecting to /bin/systemctl restart sshd.service
+[root@ansible sekar_ramraj]# useradd ansible
+[root@ansible sekar_ramraj]# passwd ansible
+
+Add user in visudo
+-------------------
+[sekar_ramraj@ansible ~]$ visudo
+## Allow root to run any commands anywhere
+root    ALL=(ALL)       ALL
+ansible ALL=(ALL)       NOPASSWD: ALL [This is how user is added]
+
+Add host details in etc/hosts in all the machines for DNS resolve[Not required for GCP and AWS only for local machines]
+--------------------------------------------------------------------------------------------------------------------------------------------------------------
+192.186.93.11	ansible.example.com ansible
+<ip of node1>	<hostname of node1> node1
+<ip of node2>	<hostname of node2> node2
+
+Create vimrc file in home directory in ansible host machine alone for ansible user
+------------------------------------------------------------------------------------------------------------
+[ansible@ansible ~]$ vi /home/ansible/.vimrc
+[ansible@ansible ~]$ cat /home/ansible/.vimrc
+set ai
+set tabstop=2
+set expandtab
+
+
+Create key in host machine:
+---------------------------
+[ansible@ansible ~]$ ssh-keygen
+Generating public/private rsa key pair.
+Enter file in which to save the key (/home/ansible/.ssh/id_rsa):
+Created directory '/home/ansible/.ssh'.
+Enter passphrase (empty for no passphrase):
+Enter same passphrase again:
+Your identification has been saved in /home/ansible/.ssh/id_rsa.
+Your public key has been saved in /home/ansible/.ssh/id_rsa.pub.
+The key fingerprint is:
+SHA256:Omtnv5WbQv1yFDi+6QIVASnbxJAaZ7iEibgFcwNN40s ansible@ansible
+The key's randomart image is:
++---[RSA 2048]----+
+|=*=o ..+.o..     |
+|o+=o+ = + .      |
+| oE. * =   . .   |
+|.. .o . . . o .  |
+|  .     S. o . . |
+|       .. . o..  |
+|      o  o  o=   |
+|      .oo o.+oo  |
+|     ..o .o=+o   |
++----[SHA256]-----+
+
+Copy key to nodes
+-----------------
+[ansible@ansible ~]$ ssh-copy-id node1
+/bin/ssh-copy-id: INFO: Source of key(s) to be installed: "/home/ansible/.ssh/id_rsa.pub"
+The authenticity of host 'node1 (10.142.0.6)' can't be established.
+ECDSA key fingerprint is SHA256:nIsItHVwOPDXQXLlkgzsOY3om4ygi3pcK0XtoT+GjrI.
+ECDSA key fingerprint is MD5:ab:e0:88:32:86:fd:2c:5e:a3:04:6d:85:dc:ed:dc:b5.
+Are you sure you want to continue connecting (yes/no)? yes
+/bin/ssh-copy-id: INFO: attempting to log in with the new key(s), to filter out any that are already installed
+/bin/ssh-copy-id: INFO: 1 key(s) remain to be installed -- if you are prompted now it is to install the new keys
+ansible@node1's password:
+
+Number of key(s) added: 1
+
+Now try logging into the machine, with:   "ssh 'node1'"
+and check to make sure that only the key(s) you wanted were added.
+
+
+Test by login to node from host:[Shouldn't get password]
+--------------------------------------------------------
+[ansible@ansible ~]$ ssh node1
+Last login: Sat Feb 16 06:04:05 2019 from 210.18.181.195
+[ansible@node1 ~]$ exit
+logout
+Connection to node1 closed.
+[ansible@ansible ~]$ ssh node2
+Last login: Sat Feb 16 06:05:07 2019 from 210.18.181.195
+
+
+Install Ansible in Host:
+------------------------
+[ansible@ansible ~]$ sudo yum install ansible
+Installed:
+  ansible.noarch 0:2.7.7-1.el7
+
+  
+Dependency Installed:
+  PyYAML.x86_64 0:3.10-11.el7                libtomcrypt.x86_64 0:1.17-26.el7                libtommath.x86_64 0:0.42.0-6.el7
+  libyaml.x86_64 0:0.1.4-11.el7_0            python-babel.noarch 0:0.9.6-8.el7               python-cffi.x86_64 0:1.6.0-5.el7
+  python-enum34.noarch 0:1.0.4-1.el7         python-httplib2.noarch 0:0.9.2-1.el7            python-idna.noarch 0:2.4-1.el7
+  python-jinja2.noarch 0:2.7.2-2.el7         python-keyczar.noarch 0:0.71c-2.el7             python-markupsafe.x86_64 0:0.11-10.el7
+  python-paramiko.noarch 0:2.1.1-9.el7       python-ply.noarch 0:3.4-11.el7                  python-pycparser.noarch 0:2.14-1.el7
+  python2-crypto.x86_64 0:2.6.1-15.el7       python2-cryptography.x86_64 0:1.7.2-2.el7       python2-jmespath.noarch 0:0.9.0-3.el7
+  sshpass.x86_64 0:1.06-2.el7
+
+Complete!
+
+Ansible Dependency Package Details:
+--------------------------------------------------
+=========================================================================================================================================
+ Package                                 DESCRIPTION
+=========================================================================================================================================
+Installing for dependencies:
+ PyYAML                                  Helps ansible to understand
+ python-httplib2                         Helps to check or monitor any web url using ansible
+ python-jinja2                           Used for templates(.j2) to intercat or get multiple destination machine details 
+ python-paramiko                         Used to manage machines with lower version for backward compatibility
+ python2-crypto                          Key exchange verification
+ python2-cryptography                    Key exchange verification
+=========================================================================================================================================
+
+Check ansible installation:
+---------------------------
+[ansible@ansible ~]$ ansible --version
+ansible 2.7.7
+
+NOTE: Ansible supports python 2.6 & 2.7
