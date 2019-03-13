@@ -1,0 +1,241 @@
+To do patching in multiple server:
+---------------------------------------------
+[ansible@ansible dev]$ vim httpd.yml
+[ansible@ansible dev]$ cat httpd.yml
+---
+- name: i am going to install httpd
+  hosts: all
+  tasks:
+   - name: install httpd
+     yum:
+      name: httpd
+      state: latest
+NOTE: yml is yaml file
+
+To run the yaml file:
+---------------------
+[ansible@ansible dev]$ ansible-playbook httpd.yml
+
+PLAY [i am going to install httpd] ******************************************************************************************************
+
+TASK [Gathering Facts] ******************************************************************************************************************
+ok: [node2]
+ok: [node1]
+
+TASK [install httpd] ********************************************************************************************************************
+changed: [node2]
+changed: [node1]
+
+PLAY RECAP ******************************************************************************************************************************
+node1                      : ok=2    changed=1    unreachable=0    failed=0
+node2                      : ok=2    changed=1    unreachable=0    failed=0
+
+Inside yml file:
+----------------
+- name: Description for user reference
+  hosts: <all,no*,group1name,group2name>
+  - name: Task reference name
+	yum:<module>
+	 name: 
+	 state: <present,latest,remove,...>
+	 
+
+	 
+To check the syntax error in yml file:
+--------------------------------------
+ansible-playbook <yaml file name> --syntax-check
+
+
+To check the log:
+-----------------
+[ansible@node1 ~]$ sudo tailf /var/log/messages
+
+
+To check the details of a module in ansible:
+--------------------------------------------------------
+[ansible@ansible dev]$ ansible-doc <module_name: example yum/service>
+
+
+The basic yml or yaml file with one module at a time:
+-----------------------------------------------------
+[ansible@ansible dev]$ cat httpd.yml
+---
+- name: i am going to install httpd
+  hosts: all
+  tasks:
+   - name: remove httpd
+     yum:
+      name: httpd
+      state: removed
+   - name: install httpd
+     yum:
+      name: httpd
+      state: latest
+   - name: restart httpd
+     service:
+      name: httpd
+      state: restarted
+   - name: install vsftpd via basic linux command
+     command: yum install vsftpd -y
+   - name: start vsftpd via linux command
+     command: service vsftpd restart
+
+	 
+To verify the module name for specific module:
+----------------------------------------------
+[ansible@ansible dev]$ ansible-doc -l | grep -i package
+
+Yaml file with local variable:
+------------------------------
+[ansible@ansible dev]$ cat yamlwithlocalvar.yml
+---
+- name: i am going to install httpd
+  hosts: all
+  vars:
+   webpack: httpd
+   ftppack: vsftpd
+  tasks:
+   - name: remove httpd
+     yum:
+      name: "{{ webpack }}"
+      state: removed
+   - name: install httpd
+     yum:
+      name: "{{ webpack }}"
+      state: latest
+   - name: restart httpd
+     service:
+      name: "{{ webpack }}"
+      state: restarted
+   - name: install vsftpd via basic linux command
+     command: yum install "{{ ftppack }}" -y
+   - name: start vsftpd via linux command
+     command: service "{{ ftppack }}" restart
+	 
+To run a playbook:
+--------------------
+[ansible@ansible dev]$ ansible-playbook yamlwithlocalvar.yml
+
+
+To resolve the ip binding issue:
+--------------------------------
+Error:
+======
+Feb 16 10:46:13 node2 httpd[4788]: (98)Address already in use: AH00072: make_sock: could not bind to address [::]:80
+Feb 16 10:46:13 node2 httpd[4788]: (98)Address already in use: AH00072: make_sock: could not bind to address 0.0.0.0:80
+
+Solution:
+=========
+Step1: go to .conf file of respective service
+vi /etc/nginx/nginx.conf
+Step 2: Change the port value
+Change listen value from 80 to other port number:
+.................................................
+server {
+        listen       81 default_server;
+        listen       [::]:81 default_server;
+
+Yaml file with tag:
+===================
+---
+- name: i am going to install httpd
+  hosts: all
+  ignore_errors: yes
+  tasks:
+   - name: remove httpd
+     yum:
+      name: "{{ webpack }}"
+      state: removed
+     tags:
+      - httpd
+   - name: install httpd
+     yum:
+      name: "{{ webpack }}"
+      state: latest
+     tags:
+      - httpd
+   - name: restart httpd
+     service:
+      name: "{{ webpack }}"
+      state: restarted
+     tags:
+      - httpd
+   - name: install vsftpd via basic linux command
+     command: yum install "{{ ftppack }}" -y
+     tags:
+      - vsftpd
+   - name: start vsftpd via linux command
+     command: service "{{ ftppack }}" restart
+     tags:
+      - vsftpd
+
+NOTE:
+------
+ignore_errors: will ignore the error and continue to execute and the best practise is to use it in pre-prod not in production.	  
+
+To ignore the error and proceed with execution:
+------------------------------------------------
+[ansible@ansible dev]$ ansible-playbook global_tag.yml
+
+PLAY [i am going to install httpd] ******************************************************************************************************
+
+TASK [Gathering Facts] ******************************************************************************************************************
+ok: [node2]
+ok: [node1]
+
+TASK [remove httpd] *********************************************************************************************************************
+fatal: [node2]: FAILED! => {"msg": "The task includes an option with an undefined variable. The error was: 'webpack' is undefined\n\nThe error appears to have been in '/home/ansible/dev/global_tag.yml': line 6, column 6, but may\nbe elsewhere in the file depending on the exact syntax problem.\n\nThe offending line appears to be:\n\n  tasks:\n   - name: remove httpd\n     ^ here\n"}
+...ignoring
+changed: [node1]
+
+TASK [install httpd] ********************************************************************************************************************
+fatal: [node2]: FAILED! => {"msg": "The task includes an option with an undefined variable. The error was: 'webpack' is undefined\n\nThe error appears to have been in '/home/ansible/dev/global_tag.yml': line 12, column 6, but may\nbe elsewhere in the file depending on the exact syntax problem.\n\nThe offending line appears to be:\n\n      - httpd\n   - name: install httpd\n     ^ here\n"}
+...ignoring
+ok: [node1]
+
+TASK [restart httpd] ********************************************************************************************************************
+fatal: [node2]: FAILED! => {"msg": "The task includes an option with an undefined variable. The error was: 'webpack' is undefined\n\nThe error appears to have been in '/home/ansible/dev/global_tag.yml': line 18, column 6, but may\nbe elsewhere in the file depending on the exact syntax problem.\n\nThe offending line appears to be:\n\n      - httpd\n   - name: restart httpd\n     ^ here\n"}
+...ignoring
+changed: [node1]
+
+TASK [install vsftpd via basic linux command] *******************************************************************************************
+fatal: [node2]: FAILED! => {"msg": "The task includes an option with an undefined variable. The error was: 'ftppack' is undefined\n\nThe error appears to have been in '/home/ansible/dev/global_tag.yml': line 24, column 6, but may\nbe elsewhere in the file depending on the exact syntax problem.\n\nThe offending line appears to be:\n\n      - httpd\n   - name: install vsftpd via basic linux command\n     ^ here\n"}
+...ignoring
+skipping: [node1]
+
+TASK [start vsftpd via linux command] ***************************************************************************************************
+fatal: [node2]: FAILED! => {"msg": "The task includes an option with an undefined variable. The error was: 'ftppack' is undefined\n\nThe error appears to have been in '/home/ansible/dev/global_tag.yml': line 28, column 6, but may\nbe elsewhere in the file depending on the exact syntax problem.\n\nThe offending line appears to be:\n\n      - vsftpd\n   - name: start vsftpd via linux command\n     ^ here\n"}
+...ignoring
+skipping: [node1]
+
+PLAY RECAP ******************************************************************************************************************************
+node1                      : ok=4    changed=2    unreachable=0    failed=0
+node2                      : ok=6    changed=0    unreachable=0    failed=0
+
+
+
+To run with the tag:
+--------------------
+[ansible@ansible dev]$ ansible-playbook global_tag.yml --tag=httpd
+
+NOTE: This is run the playbook with the specified tag only. 
+
+To restrict the global variable to specific node:
+-------------------------------------------------------------
+
+Below is from inventory[hosts] file:
+node1
+node2
+
+[prod]#----Group Name
+node1
+[backup]#----Group Name
+node2
+
+#Variablies
+[prod:vars]
+webpack=httpd
+ftppack=vsftpd
+
+NOTE: So here the group "prod" will be applicable to node1 only hence the variables "webpack" and "ftppack" will be used in prod alone as the variable refers to "prod".
+ 
