@@ -1,0 +1,116 @@
+NOTE: Config file will be verified in each env directory if we create ansible.cfg in each env directory else it'll refer to global cofig file,So best practice is to create a seperate config for each env directory.  
+
+[ansible@ansible dev]$ touch ansible.cfg
+[ansible@ansible dev]$ ansible --version
+ansible 2.7.7
+  config file = /home/ansible/dev/ansible.cfg
+  configured module search path = [u'/home/ansible/.ansible/plugins/modules', u'/usr/share/ansible/plugins/modules']
+  ansible python module location = /usr/lib/python2.7/site-packages/ansible
+  executable location = /bin/ansible
+  python version = 2.7.5 (default, Oct 30 2018, 23:45:53) [GCC 4.8.5 20150623 (Red Hat 4.8.5-36)]
+
+
+[ansible@ansible dev]$ vi ansible.cfg
+[ansible@ansible dev]$ cat ansible.cfg
+[defaults]
+inventory=hosts
+[ansible@ansible dev]$ ansible all --list
+[WARNING]: Unable to parse /home/ansible/dev/hosts as an inventory source
+
+[WARNING]: No inventory was parsed, only implicit localhost is available
+
+[WARNING]: provided hosts list is empty, only localhost is available. Note that the implicit localhost does not match 'all'
+
+hosts (0):
+
+NOTE: Here we've inventory field in ansible.cfg file which refers to hosts file in current directory since we didn't mentioned full path and since we
+don't have host file in current directory we end up with an error
+
+Create hosts file and add host name:
+------------------------------------
+[ansible@ansible dev]$ vi hosts
+[ansible@ansible dev]$ cat hosts
+node1
+node2
+
+To verify the list of hosts assigned to ansible
+------------------------------------------------
+[ansible@ansible dev]$ ansible all --list
+  hosts (2):
+    node1
+    node2
+
+Ansible will eliminate the duplicates:
+--------------------------------------
+[ansible@ansible dev]$ cat hosts
+node1
+node2
+
+node1
+node2
+
+[ansible@ansible dev]$ ansible all --list
+  hosts (2):
+    node1
+    node2
+
+
+Check connection with all client machines/hosts via ansible:
+------------------------------------------------------------
+[ansible@ansible dev]$ ansible all -m ping
+node1 | SUCCESS => {
+    "changed": false,
+    "ping": "pong"
+}
+node2 | SUCCESS => {
+    "changed": false,
+    "ping": "pong"
+}
+
+-m ----module
+NOTE: If in case want to check ping for only one node  ansible node1 -m ping
+
+To get the /etc/hosts from all the nodes via ansible
+-----------------------------------------------------
+[ansible@ansible dev]$ ansible all -m command -a "cat /etc/hosts"
+node1 | CHANGED | rc=0 >>
+127.0.0.1   localhost localhost.localdomain localhost4 localhost4.localdomain4
+::1         localhost localhost.localdomain localhost6 localhost6.localdomain6
+10.142.0.6 node1.us-east1-b.c.enduring-branch-231904.internal node1  # Added by Google
+169.254.169.254 metadata.google.internal  # Added by Google
+
+node2 | CHANGED | rc=0 >>
+127.0.0.1   localhost localhost.localdomain localhost4 localhost4.localdomain4
+::1         localhost localhost.localdomain localhost6 localhost6.localdomain6
+10.142.0.7 node2.us-east1-b.c.enduring-branch-231904.internal node2  # Added by Google
+169.254.169.254 metadata.google.internal  # Added by Google
+
+-a 
+
+To install a package in all the nodes via ansible:
+--------------------------------------------------
+[ansible@ansible dev]$ ansible all -m command -a "yum install unzip -y"
+ [WARNING]: Consider using the yum module rather than running yum.  If you need to use command because yum is insufficient you can add
+warn=False to this command task or set command_warnings=False in ansible.cfg to get rid of this message.
+
+node1 | FAILED | rc=1 >>
+Loaded plugins: fastestmirrorYou need to be root to perform this command.non-zero return code
+
+node2 | FAILED | rc=1 >>
+Loaded plugins: fastestmirrorYou need to be root to perform this command.non-zero return code
+
+...................................................................................................................
+NOTE: Failed since sudo is not used hence we've to update the config file in respective folder with below values
+...................................................................................................................
+
+[privilege_escalation]
+#become=True
+#become_method=sudo[This is can be changed with the values applicable to respective client like cloudify or dodf]
+#become_user=root
+#become_ask_pass=False
+
+
+To check the count of modules supported by ansible:
+---------------------------------------------------
+[ansible@ansible dev]$ ansible-doc -l | wc -l
+2080
